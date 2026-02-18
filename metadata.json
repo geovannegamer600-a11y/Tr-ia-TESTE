@@ -1,0 +1,7 @@
+{
+  "name": "Troia Games Locador",
+  "description": "Uma plataforma completa e profissional para locação de jogos, com catálogo avançado e painel administrativo robusto.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
