@@ -165,7 +165,7 @@ const DEFAULT_CONFIG: SiteConfig = {
   bannerImageUrl: '',
   bannerButtonText: 'FALAR COM ATENDENTE',
   bannerButtonUrl: '',
-  footerDescription: 'Sua plataforma definitiva para locação de mídia digital.',
+  footerDescription: 'Sua plataforma definitiva para locação de mídia.',
   contactPhone: '5522999566934',
   contactEmail: 'contato@troiagames.com',
   contactAddress: 'Atendimento Online Global',

@@ -122,7 +122,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <Router>
+    <Router future={{ v7_relativeSplatPath: true }}>
       <div className="flex flex-col min-h-screen bg-[#09090b] text-zinc-100">
         <Navbar 
           user={user} 

@@ -94,10 +94,9 @@ const Footer: React.FC<FooterProps> = ({ config }) => {
 
         <div className="border-t border-white/5 mt-16 pt-8 flex flex-col md:flex-row items-center justify-between gap-6">
           <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-600">
-            © {new Date().getFullYear()} {config.siteName} • Locadora Digital
+            © {new Date().getFullYear()} {config.siteName}
           </p>
           <div className="flex items-center space-x-6 text-[10px] font-bold text-zinc-700 uppercase tracking-widest">
-             <span>Digital</span>
              <span>Instantâneo</span>
              <span>Seguro</span>
           </div>
