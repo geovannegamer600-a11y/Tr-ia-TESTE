@@ -119,7 +119,7 @@ const DEFAULT_CONFIG: SiteConfig = {
   bannerButtonUrl: 'https://wa.me/5522999566934',
   footerDescription: 'Sua plataforma definitiva para locação de mídia digital. Segurança, rapidez e os melhores preços do mercado brasileiro.',
   contactPhone: '5522999566934',
-  contactEmail: 'contato@troiagames.com',
+  contactEmail: 'testetroia2',
   contactAddress: 'Atendimento Online Global',
   instagramUrl: 'https://instagram.com/troiagames',
   instagramIconUrl: 'https://upload.wikimedia.org/wikipedia/commons/e/e7/Instagram_logo_2016.svg',
