@@ -1,91 +1,93 @@
+
 import { Game, Category, DashboardStats, SiteConfig, StorePlatform, Order, GamePlatform } from './types';
 import { INITIAL_GAMES, INITIAL_CATEGORIES, PRICE_TABLE, ADMIN_EMAIL } from './constants';
-import { supabase } from './lib/supabase';
 
-// Export supabase to be used by other components (fixes error in App.tsx)
-export { supabase };
+// Chaves do LocalStorage
+const KEYS = {
+  GAMES: 'troia_games_data_v1',
+  CONFIG: 'troia_config_data_v1',
+  ORDERS: 'troia_orders_data_v1',
+  CATEGORIES: 'troia_categories_data_v1',
+  GAME_PLATFORMS: 'troia_game_platforms_data_v1',
+  STORE_PLATFORMS: 'troia_store_platforms_data_v1'
+};
 
-// Cache local para manter performance síncrona onde necessário
+// Cache em memória
 let cachedGames: Game[] = [];
 let cachedConfig: SiteConfig | null = null;
 
 export const fetchAllData = async () => {
-  try {
-    const [gamesRes, configRes] = await Promise.all([
-      supabase.from('games').select('*').order('created_at', { ascending: false }),
-      supabase.from('site_config').select('*').single()
-    ]);
+  // Simula carregamento
+  const storedGames = localStorage.getItem(KEYS.GAMES);
+  const storedConfig = localStorage.getItem(KEYS.CONFIG);
 
-    if (gamesRes.data) cachedGames = gamesRes.data;
-    if (configRes.data) cachedConfig = configRes.data.config_data;
-  } catch (error) {
-    console.error('Erro ao carregar dados do Supabase:', error);
-  }
+  cachedGames = storedGames ? JSON.parse(storedGames) : INITIAL_GAMES;
+  cachedConfig = storedConfig ? JSON.parse(storedConfig) : DEFAULT_CONFIG;
+  
+  if (!storedGames) localStorage.setItem(KEYS.GAMES, JSON.stringify(INITIAL_GAMES));
+  if (!storedConfig) localStorage.setItem(KEYS.CONFIG, JSON.stringify(DEFAULT_CONFIG));
 };
 
 export const getGames = (): Game[] => {
-  // Retorna cache se disponível, senão retorna iniciais enquanto carrega
-  return cachedGames.length > 0 ? cachedGames : INITIAL_GAMES;
+  if (cachedGames.length > 0) return cachedGames;
+  const stored = localStorage.getItem(KEYS.GAMES);
+  return stored ? JSON.parse(stored) : INITIAL_GAMES;
 };
 
 export const saveGames = async (games: Game[]) => {
   cachedGames = games;
-  const { error } = await supabase.from('games').upsert(games);
-  if (error) console.error('Erro ao salvar games:', error);
+  localStorage.setItem(KEYS.GAMES, JSON.stringify(games));
 };
 
 export const getCategories = (): Category[] => {
-  const stored = localStorage.getItem('gamerent_categories_v3');
+  const stored = localStorage.getItem(KEYS.CATEGORIES);
   return stored ? JSON.parse(stored) : INITIAL_CATEGORIES;
 };
 
 export const saveCategories = async (categories: Category[]) => {
-  localStorage.setItem('gamerent_categories_v3', JSON.stringify(categories));
-  // Sincronizar com Supabase se necessário
-  await supabase.from('categories').upsert(categories);
+  localStorage.setItem(KEYS.CATEGORIES, JSON.stringify(categories));
 };
 
 export const getSiteConfig = (): SiteConfig => {
   if (cachedConfig) return cachedConfig;
-  const stored = localStorage.getItem('gamerent_config_v4');
+  const stored = localStorage.getItem(KEYS.CONFIG);
   return stored ? JSON.parse(stored) : DEFAULT_CONFIG;
 };
 
 export const saveSiteConfig = async (config: SiteConfig) => {
   cachedConfig = config;
-  localStorage.setItem('gamerent_config_v4', JSON.stringify(config));
-  await supabase.from('site_config').upsert({ id: 1, config_data: config });
+  localStorage.setItem(KEYS.CONFIG, JSON.stringify(config));
 };
 
 export const createOrder = async (orderData: Partial<Order>) => {
-  const { data, error } = await supabase
-    .from('orders')
-    .insert([{ ...orderData, created_at: new Date().toISOString() }])
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+  const orders = await getOrders();
+  const newOrder = {
+    ...orderData,
+    id: `ORD-${Date.now()}`,
+    created_at: new Date().toISOString(),
+    status: orderData.status || 'Pendente'
+  } as Order;
+  
+  const updatedOrders = [newOrder, ...orders];
+  localStorage.setItem(KEYS.ORDERS, JSON.stringify(updatedOrders));
+  return newOrder;
 };
 
 export const getOrders = async (): Promise<Order[]> => {
-  const { data, error } = await supabase
-    .from('orders')
-    .select('*')
-    .order('created_at', { ascending: false });
-  
-  if (error) return [];
-  return data || [];
+  const stored = localStorage.getItem(KEYS.ORDERS);
+  return stored ? JSON.parse(stored) : [];
 };
 
 export const updateOrderStatus = async (orderId: string, status: Order['status']) => {
-  await supabase.from('orders').update({ status }).eq('id', orderId);
+  const orders = await getOrders();
+  const updated = orders.map(o => o.id === orderId ? { ...o, status } : o);
+  localStorage.setItem(KEYS.ORDERS, JSON.stringify(updated));
 };
 
-// Fixed: Added missing deleteOrder function (fixes error in OrdersManager.tsx)
 export const deleteOrder = async (id: string) => {
-  const { error } = await supabase.from('orders').delete().eq('id', id);
-  if (error) console.error('Erro ao excluir pedido:', error);
+  const orders = await getOrders();
+  const updated = orders.filter(o => o.id !== id);
+  localStorage.setItem(KEYS.ORDERS, JSON.stringify(updated));
 };
 
 export const getStats = (): DashboardStats => {
@@ -99,34 +101,41 @@ export const getStats = (): DashboardStats => {
 };
 
 export const updateGame = async (game: Game) => {
-  const { error } = await supabase.from('games').upsert(game);
-  if (!error) {
-    cachedGames = cachedGames.some(g => g.id === game.id)
-      ? cachedGames.map(g => g.id === game.id ? game : g)
-      : [game, ...cachedGames];
+  const games = getGames();
+  const index = games.findIndex(g => g.id === game.id);
+  let updatedGames;
+  
+  if (index >= 0) {
+    updatedGames = games.map(g => g.id === game.id ? game : g);
+  } else {
+    updatedGames = [game, ...games];
   }
+  
+  cachedGames = updatedGames;
+  localStorage.setItem(KEYS.GAMES, JSON.stringify(updatedGames));
 };
 
 export const deleteGame = async (id: string) => {
-  await supabase.from('games').delete().eq('id', id);
-  cachedGames = cachedGames.filter(g => g.id !== id);
+  const games = getGames();
+  const updated = games.filter(g => g.id !== id);
+  cachedGames = updated;
+  localStorage.setItem(KEYS.GAMES, JSON.stringify(updated));
 };
 
 export const getGamePlatforms = (): GamePlatform[] => {
-  const stored = localStorage.getItem('gamerent_game_platforms_v1');
+  const stored = localStorage.getItem(KEYS.GAME_PLATFORMS);
   return stored ? JSON.parse(stored) : [
     { id: 'PS4', name: 'PS4' },
     { id: 'PS5', name: 'PS5' }
   ];
 };
 
-// Fixed: Added missing saveGamePlatforms function (fixes error in GamePlatformsManager.tsx)
 export const saveGamePlatforms = async (platforms: GamePlatform[]) => {
-  localStorage.setItem('gamerent_game_platforms_v1', JSON.stringify(platforms));
+  localStorage.setItem(KEYS.GAME_PLATFORMS, JSON.stringify(platforms));
 };
 
 export const getStorePlatforms = (): StorePlatform[] => {
-  const stored = localStorage.getItem('gamerent_platforms_v3');
+  const stored = localStorage.getItem(KEYS.STORE_PLATFORMS);
   return stored ? JSON.parse(stored) : [
     { id: 'all', label: 'TODOS', iconName: 'Layers' },
     { id: 'PS4', label: 'PS4', iconName: 'Gamepad' },
@@ -134,9 +143,8 @@ export const getStorePlatforms = (): StorePlatform[] => {
   ];
 };
 
-// Fixed: Added missing saveStorePlatforms function (fixes error in PlatformsManager.tsx)
 export const saveStorePlatforms = async (platforms: StorePlatform[]) => {
-  localStorage.setItem('gamerent_platforms_v3', JSON.stringify(platforms));
+  localStorage.setItem(KEYS.STORE_PLATFORMS, JSON.stringify(platforms));
 };
 
 const DEFAULT_CONFIG: SiteConfig = {

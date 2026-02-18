@@ -21,9 +21,8 @@ import ConfigManager from './pages/admin/ConfigManager';
 import AdminLayout from './components/AdminLayout';
 import FloatingSocials from './components/FloatingSocials';
 import { User, SiteConfig, CartItem } from './types';
-import { getSiteConfig, fetchAllData, supabase } from './store';
-import { X, CheckCircle2, WifiOff, RefreshCw } from 'lucide-react';
-import { supabase as supabaseClient } from './lib/supabase';
+import { getSiteConfig, fetchAllData } from './store';
+import { X, CheckCircle2, RefreshCw } from 'lucide-react';
 
 interface ProtectedRouteProps {
   user: User | null;
@@ -52,24 +51,14 @@ const App: React.FC = () => {
     const initApp = async () => {
       await fetchAllData();
       
-      // Checar sessão do Supabase
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      if (session?.user) {
+      // Checar sessão local
+      const storedUser = localStorage.getItem('troia_session');
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
         const config = getSiteConfig();
-        const isAdmin = config.adminEmails.some(e => e.toLowerCase() === session.user.email?.toLowerCase());
-        setUser({ email: session.user.email!, isAdmin });
+        const isAdmin = config.adminEmails.some(e => e.toLowerCase() === parsed.email.toLowerCase());
+        setUser({ ...parsed, isAdmin });
       }
-
-      // Listener de mudanças de auth
-      supabaseClient.auth.onAuthStateChange((_event, session) => {
-        if (session?.user) {
-          const config = getSiteConfig();
-          const isAdmin = config.adminEmails.some(e => e.toLowerCase() === session.user.email?.toLowerCase());
-          setUser({ email: session.user.email!, isAdmin });
-        } else {
-          setUser(null);
-        }
-      });
 
       setIsLoading(false);
     };
@@ -87,8 +76,8 @@ const App: React.FC = () => {
     setTimeout(() => setNotification(null), 4000);
   };
 
-  const handleLogout = async () => {
-    await supabaseClient.auth.signOut();
+  const handleLogout = () => {
+    localStorage.removeItem('troia_session');
     setUser(null);
     showNotification('Até breve!');
   };
@@ -157,7 +146,7 @@ const App: React.FC = () => {
                 config={siteConfig}
               />
             } />
-            <Route path="/login" element={<Login />} />
+            <Route path="/login" element={<Login onLogin={(u) => setUser(u)} />} />
             <Route path="/settings" element={<UserRoute user={user}><UserSettings /></UserRoute>} />
 
             <Route path="/admin" element={<AdminRoute user={user}><AdminLayout user={user} onLogout={handleLogout}><Dashboard /></AdminLayout></AdminRoute>} />

@@ -6,17 +6,17 @@ import {
   Mail, 
   Lock, 
   AlertCircle, 
-  CheckCircle2, 
   ChevronLeft, 
-  ShieldCheck, 
-  RefreshCw,
-  ArrowRight,
-  KeyRound,
-  X
+  RefreshCw
 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { User } from '../types';
+import { getSiteConfig } from '../store';
 
-const Login: React.FC = () => {
+interface LoginProps {
+  onLogin: (user: User) => void;
+}
+
+const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const navigate = useNavigate();
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
@@ -29,27 +29,32 @@ const Login: React.FC = () => {
     setError('');
     setIsLoading(true);
 
-    try {
-      if (isRegister) {
-        const { error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-        });
-        if (signUpError) throw signUpError;
-        alert('Cadastro realizado! Verifique seu e-mail para confirmar.');
-      } else {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (signInError) throw signInError;
-        navigate('/');
+    // Simulação de delay de rede
+    setTimeout(() => {
+      try {
+        const config = getSiteConfig();
+        const isAdmin = config.adminEmails.some(e => e.toLowerCase() === email.toLowerCase());
+        
+        const userData: User = {
+          email: email,
+          isAdmin: isAdmin
+        };
+
+        // Salva na sessão local
+        localStorage.setItem('troia_session', JSON.stringify(userData));
+        onLogin(userData);
+        
+        if (isAdmin) {
+          navigate('/admin');
+        } else {
+          navigate('/');
+        }
+      } catch (err: any) {
+        setError('Erro ao processar login.');
+      } finally {
+        setIsLoading(false);
       }
-    } catch (err: any) {
-      setError(err.message || 'Erro ao processar solicitação');
-    } finally {
-      setIsLoading(false);
-    }
+    }, 1000);
   };
 
   return (
