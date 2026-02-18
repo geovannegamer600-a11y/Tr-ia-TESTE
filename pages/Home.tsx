@@ -123,7 +123,7 @@ const Home: React.FC<HomeProps> = ({ config, onAddToCart }) => {
       <section id="como-funciona" className="py-20 md:py-32 border-t border-white/5 relative overflow-hidden bg-zinc-950/30 scroll-mt-20">
         <div className="max-w-7xl mx-auto px-6 md:px-8 lg:px-12">
           <div className="text-center mb-16 md:mb-24">
-             <h2 className="text-3xl md:text-5xl font-black text-white uppercase italic tracking-tighter mb-4">COMO FUNCIONA A <span className="text-blue-500">TROIA LOCADORA GAMES</span></h2>
+             <h2 className="text-3xl md:text-5xl font-black text-white uppercase italic tracking-tighter mb-4">COMO FUNCIONA A <span className="text-blue-500">TROIA GAMES</span></h2>
              <p className="text-zinc-500 font-bold uppercase tracking-[0.3em] text-[10px] md:text-xs">Simples, Rápido e 100% Digital</p>
           </div>
 

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { getStats, getGames, getOrders } from '../../store';
 import { DashboardStats, Game, Order } from '../../types';
@@ -24,13 +25,23 @@ const Dashboard: React.FC = () => {
   const [recentGames, setRecentGames] = useState<Game[]>([]);
 
   useEffect(() => {
-    setMounted(true);
-    setGameStats(getStats());
-    setOrders(getOrders());
-    setRecentGames(getGames().filter(g => !g.externalUrl).sort((a, b) => b.id.localeCompare(a.id)).slice(0, 6));
+    const initDashboard = async () => {
+      setMounted(true);
+      setGameStats(getStats());
+      
+      // Correção: Aguardar a promessa de getOrders()
+      const fetchedOrders = await getOrders();
+      setOrders(fetchedOrders);
+      
+      setRecentGames(getGames().filter(g => !g.externalUrl).sort((a, b) => b.id.localeCompare(a.id)).slice(0, 6));
+    };
+    
+    initDashboard();
   }, []);
 
   const approvedOrders = useMemo(() => {
+    // Garantir que orders seja sempre um array antes de filtrar
+    if (!Array.isArray(orders)) return [];
     return orders.filter(o => o.status === 'Aprovado');
   }, [orders]);
 

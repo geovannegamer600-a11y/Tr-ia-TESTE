@@ -21,8 +21,9 @@ import ConfigManager from './pages/admin/ConfigManager';
 import AdminLayout from './components/AdminLayout';
 import FloatingSocials from './components/FloatingSocials';
 import { User, SiteConfig, CartItem } from './types';
-import { getSiteConfig, syncOfflineData } from './store';
+import { getSiteConfig, fetchAllData, supabase } from './store';
 import { X, CheckCircle2, WifiOff, RefreshCw } from 'lucide-react';
+import { supabase as supabaseClient } from './lib/supabase';
 
 interface ProtectedRouteProps {
   user: User | null;
@@ -45,35 +46,40 @@ const App: React.FC = () => {
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(getSiteConfig());
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'info' | 'offline' } | null>(null);
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const handleStatusChange = () => {
-      const offline = !navigator.onLine;
-      setIsOffline(offline);
-      if (!offline) {
-        showNotification('Conexão restaurada. Sincronizando dados...', 'success');
-        syncOfflineData();
+    const initApp = async () => {
+      await fetchAllData();
+      
+      // Checar sessão do Supabase
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session?.user) {
+        const config = getSiteConfig();
+        const isAdmin = config.adminEmails.some(e => e.toLowerCase() === session.user.email?.toLowerCase());
+        setUser({ email: session.user.email!, isAdmin });
       }
+
+      // Listener de mudanças de auth
+      supabaseClient.auth.onAuthStateChange((_event, session) => {
+        if (session?.user) {
+          const config = getSiteConfig();
+          const isAdmin = config.adminEmails.some(e => e.toLowerCase() === session.user.email?.toLowerCase());
+          setUser({ email: session.user.email!, isAdmin });
+        } else {
+          setUser(null);
+        }
+      });
+
+      setIsLoading(false);
     };
 
-    window.addEventListener('online', handleStatusChange);
-    window.addEventListener('offline', handleStatusChange);
+    initApp();
 
-    const storedUser = localStorage.getItem('gamerent_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
     const storedCart = localStorage.getItem('gamerent_cart');
     if (storedCart) {
       setCartItems(JSON.parse(storedCart));
     }
-    setSiteConfig(getSiteConfig());
-
-    return () => {
-      window.removeEventListener('online', handleStatusChange);
-      window.removeEventListener('offline', handleStatusChange);
-    };
   }, []);
 
   const showNotification = (message: string, type: 'success' | 'info' | 'offline' = 'success') => {
@@ -81,18 +87,9 @@ const App: React.FC = () => {
     setTimeout(() => setNotification(null), 4000);
   };
 
-  const handleLogin = (email: string) => {
-    const config = getSiteConfig();
-    const isAdmin = config.adminEmails.some(e => e.toLowerCase() === email.toLowerCase());
-    const newUser = { email, isAdmin };
-    setUser(newUser);
-    localStorage.setItem('gamerent_user', JSON.stringify(newUser));
-    showNotification(`Bem-vindo de volta!`);
-  };
-
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabaseClient.auth.signOut();
     setUser(null);
-    localStorage.removeItem('gamerent_user');
     showNotification('Até breve!');
   };
 
@@ -127,16 +124,17 @@ const App: React.FC = () => {
     showNotification('Configurações salvas.');
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
+        <RefreshCw className="w-10 h-10 text-blue-600 animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <Router>
       <div className="flex flex-col min-h-screen bg-[#09090b] text-zinc-100">
-        {/* Offline Banner */}
-        {isOffline && (
-          <div className="bg-amber-600 text-white text-[10px] font-black uppercase tracking-[0.2em] py-2 text-center flex items-center justify-center gap-3 z-[2000]">
-            <WifiOff className="w-4 h-4" /> Modo Offline Ativo - As alterações serão sincronizadas quando a internet voltar
-          </div>
-        )}
-
         <Navbar 
           user={user} 
           onLogout={handleLogout} 
@@ -159,7 +157,7 @@ const App: React.FC = () => {
                 config={siteConfig}
               />
             } />
-            <Route path="/login" element={<Login onLogin={handleLogin} />} />
+            <Route path="/login" element={<Login />} />
             <Route path="/settings" element={<UserRoute user={user}><UserSettings /></UserRoute>} />
 
             <Route path="/admin" element={<AdminRoute user={user}><AdminLayout user={user} onLogout={handleLogout}><Dashboard /></AdminLayout></AdminRoute>} />
@@ -174,7 +172,7 @@ const App: React.FC = () => {
 
           {notification && (
             <div className="fixed bottom-6 right-6 z-[100] animate-in fade-in slide-in-from-bottom-4 duration-300">
-              <div className={`flex items-center gap-3 px-6 py-4 rounded-xl shadow-2xl border ${notification.type === 'success' ? 'bg-zinc-900 border-emerald-500/30 text-emerald-400' : notification.type === 'offline' ? 'bg-zinc-900 border-amber-500/30 text-amber-500' : 'bg-zinc-900 border-zinc-800 text-zinc-400'}`}>
+              <div className={`flex items-center gap-3 px-6 py-4 rounded-xl shadow-2xl border ${notification.type === 'success' ? 'bg-zinc-900 border-emerald-500/30 text-emerald-400' : 'bg-zinc-900 border-zinc-800 text-zinc-400'}`}>
                 {notification.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <RefreshCw className="w-5 h-5" />}
                 <span className="text-sm font-semibold">{notification.message}</span>
                 <button onClick={() => setNotification(null)} className="ml-2 hover:text-white"><X className="w-4 h-4" /></button>
